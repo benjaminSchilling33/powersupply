@@ -1,4 +1,4 @@
-#include "rest_interface_tab.h"
+#include "RestInterfaceTab.h"
 
 void create_rest_interface_tab(lv_obj_t * parent) {
 

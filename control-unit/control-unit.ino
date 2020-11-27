@@ -2,9 +2,9 @@
 #include <TFT_eSPI.h>
 #include <Ticker.h>
 
-#include "output_tab.h"
-#include "rest_interface_tab.h"
-#include "wifi_tab.h"
+#include "OutputTab.h"
+#include "RestInterfaceTab.h"
+#include "WifiTab.h"
 
 #define screenWidth 480
 #define screenHeight 320
@@ -87,7 +87,8 @@ void create_tab_view(){
     /*Add content to the tabs*/
     create_output_tab(tab_output);
     create_rest_interface_tab(tab_rest_interface);
-    create_wifi_tab(tab_wifi);
+    WifiTab::init();
+    WifiTab::createWifiTab(tab_wifi);
 }
 
 void setup()

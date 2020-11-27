@@ -1,4 +1,4 @@
-#include "output_tab.h"
+#include "OutputTab.h"
 
 // ---------------- States ----------------
 #define OUTPUT_STATE_DISABLED 0
