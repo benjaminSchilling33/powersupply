@@ -7,15 +7,17 @@
 static int connection_state = WIFI_STATE_DISCONNECTED;
 static String selected_wifi = "";
 
-static int tries = 10;
+static int tries = 20;
 
 #define GUI_STATE_DEFAULT 0
 #define GUI_STATE_ENTER_PASSWORD 1
 static int gui_state = GUI_STATE_DEFAULT;
 
 // ---------------- Function protypes ----------------
-static void update_gui();
+static void update_gui(bool fromInit);
 static void scan_networks();
+static void set_initial_state();
+static void hide_all();
 
 // ---------------- Event handler prototypes ----------------
 static void ta_event_cb(lv_obj_t * ta, lv_event_t event);
@@ -150,60 +152,59 @@ void create_wifi_tab(lv_obj_t * parent) {
   lv_label_set_text(label_ip_address, "IP Address: ");
   lv_obj_align(label_ip_address, NULL, LV_ALIGN_IN_TOP_MID, 0, 60);
 
-  scan_networks();
-  update_gui();
+  set_initial_state();
 }
 
-static void update_gui() {
+static void set_initial_state() {
+  EepromController eepromController;
+  if (eepromController.getFlagWifiCredentials()) {
+    Serial.println("Credentials found");
+    // If wifi credentials are set, set WIFI_STATE_CONNECTING
+    connection_state = WIFI_STATE_CONNECTING;
+  }
+  else {
+    Serial.println("No credentials found");
+    // If not scan networks and set WIFI_STATE_DISCONNECTED
+    scan_networks();
+    connection_state = WIFI_STATE_DISCONNECTED;
+  }
+  update_gui(true);
+}
+
+static void update_gui(bool fromInit) {
   if (gui_state == GUI_STATE_ENTER_PASSWORD) {
+    // Hide all objects
+    hide_all();
     // show keyboard and close button
     lv_obj_set_hidden(kb, false);
     lv_obj_set_hidden(btn_close, false);
+    
+    // Show password related objects
+    lv_obj_set_hidden(pwd_ta, true);
+    lv_obj_set_hidden(pwd_label, true);
 
     // move password text area to top mid
     lv_obj_align(pwd_ta, NULL, LV_ALIGN_IN_TOP_MID, -10, 20);
     lv_obj_align(pwd_label, pwd_ta, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
 
-    //hide all other objects
-    lv_obj_set_hidden(ssid_roller, true);
-    lv_obj_set_hidden(ssid_label, true);
-    lv_obj_set_hidden(btn_connect, true);
-    lv_obj_set_hidden(button_label_connect, true);
-    lv_obj_set_hidden(btn_scan, true);
-    lv_obj_set_hidden(button_label_scan, true);
-
   } else if (gui_state == GUI_STATE_DEFAULT) {
     if (connection_state == WIFI_STATE_DISCONNECTED) {
-      // Hide keyboard and close button
-      lv_obj_set_hidden(kb, true);
-      lv_obj_set_hidden(btn_close, true);
-      // Hide spinner
-      lv_obj_set_hidden(preload, true);
+      // Hide all objects
+      hide_all();
 
-      // Hide connected objects
-      lv_obj_set_hidden(btn_disconnect, true);
-      lv_obj_set_hidden(button_label_disconnect, true);
-      lv_obj_set_hidden(label_connected_ssid, true);
-      lv_obj_set_hidden(label_connection_strength, true);
-      lv_obj_set_hidden(label_ip_address, true);
-
-      //show all other objects
-      lv_obj_set_hidden(pwd_ta, false);
-      lv_obj_set_hidden(pwd_label, false);
-      lv_obj_set_hidden(ssid_roller, false);
-      lv_obj_set_hidden(ssid_label, false);
-      lv_obj_set_hidden(btn_connect, false);
-      lv_obj_set_hidden(button_label_connect, false);
-      lv_obj_set_hidden(btn_scan, false);
-      lv_obj_set_hidden(button_label_scan, false);
-
+      // Show password related objects
+      lv_obj_set_hidden(pwd_ta, true);
+      lv_obj_set_hidden(pwd_label, true);
 
       // move password text area to default position
       lv_obj_align(pwd_ta, NULL, LV_ALIGN_IN_TOP_RIGHT, -10, 20);
       lv_obj_align(pwd_label, pwd_ta, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
+
+      // Scan for networks
+      scan_networks();
     } else if (connection_state == WIFI_STATE_CONNECTED) {
-      // Hide spinner
-      lv_obj_set_hidden(preload, true);
+      // Hide all objects
+      hide_all();
       // Delete possibly running task
       lv_task_del(task);
       // Show connected Wifi SSID
@@ -223,28 +224,24 @@ static void update_gui() {
       lv_obj_set_hidden(button_label_disconnect, false);
     } else if (connection_state == WIFI_STATE_CONNECTING) {
       // Hide all objects
-      lv_obj_set_hidden(pwd_ta, true);
-      lv_obj_set_hidden(pwd_label, true);
-      lv_obj_set_hidden(ssid_roller, true);
-      lv_obj_set_hidden(ssid_label, true);
-      lv_obj_set_hidden(btn_connect, true);
-      lv_obj_set_hidden(button_label_connect, true);
-      lv_obj_set_hidden(btn_scan, true);
-      lv_obj_set_hidden(button_label_scan, true);
-      lv_obj_set_hidden(btn_disconnect, true);
-      lv_obj_set_hidden(button_label_disconnect, true);
-      lv_obj_set_hidden(label_connected_ssid, true);
-      lv_obj_set_hidden(label_connection_strength, true);
-      lv_obj_set_hidden(label_ip_address, true);
-
+      hide_all();
       // Show circular progress indicator
       lv_obj_set_hidden(preload, false);
 
       // Start connecting to wifi
-      String password = lv_textarea_get_text(pwd_ta);
-      WiFi.begin(selected_wifi.c_str(), password.c_str());
-      Serial.println(password);
-      Serial.println(selected_wifi);
+      EepromController eepromController;
+      if(!fromInit){
+        String password = lv_textarea_get_text(pwd_ta);
+        Serial.println(password);
+        Serial.println(selected_wifi);
+        eepromController.setWifiSSID(selected_wifi);
+        eepromController.setWifiPassword(password);
+      }
+      Serial.print("Wifi SSID in EEPROM:");
+      Serial.println(eepromController.getWifiSSID());
+      Serial.print("Wifi PW in EEPROM:");
+      Serial.println(eepromController.getWifiPassword());
+      WiFi.begin(eepromController.getWifiSSID().c_str(), eepromController.getWifiPassword().c_str());
       tries = 20;
       task = lv_task_create(connect_wifi_task_cb, 500, LV_TASK_PRIO_MID, NULL);
       lv_task_set_repeat_count(task, 21);
@@ -260,7 +257,7 @@ static void update_gui() {
 
 void connect_wifi_task_cb(lv_task_t * task) {
   // If connection established done do anything
-  if(connection_state == WIFI_STATE_CONNECTED){
+  if (connection_state == WIFI_STATE_CONNECTED) {
     return;
   }
   if (WiFi.status() != WL_CONNECTED && tries > 0) {
@@ -271,13 +268,16 @@ void connect_wifi_task_cb(lv_task_t * task) {
   } else if (WiFi.status() != WL_CONNECTED && tries == 0) {
     // If connection failed after 10 seconds (20 * 500ms)
     Serial.println("Connection failed");
+    WiFi.disconnect();
     connection_state = WIFI_STATE_DISCONNECTED;
-    update_gui();
+    update_gui(false);
   } else if (WiFi.status() == WL_CONNECTED) {
     // If connection is established
-    Serial.println("Connection successfull");
+    Serial.println("Connection successful");
+    EepromController eepromController;
+    eepromController.setFlagWifiCredentials();
     connection_state = WIFI_STATE_CONNECTED;
-    update_gui();
+    update_gui(false);
   }
 }
 
@@ -307,7 +307,7 @@ static void ta_event_cb(lv_obj_t * ta, lv_event_t event)
     if (kb != NULL)
       lv_keyboard_set_textarea(kb, ta);
     gui_state = GUI_STATE_ENTER_PASSWORD;
-    update_gui();
+    update_gui(false);
   }
 }
 
@@ -324,7 +324,7 @@ static void event_handler_close(lv_obj_t * obj, lv_event_t event)
 {
   if (event == LV_EVENT_CLICKED) {
     gui_state = GUI_STATE_DEFAULT;
-    update_gui();
+    update_gui(false);
   }
 }
 
@@ -333,7 +333,7 @@ static void event_handler_connect(lv_obj_t * obj, lv_event_t event)
   if (event == LV_EVENT_CLICKED) {
     if (connection_state == WIFI_STATE_DISCONNECTED) {
       connection_state = WIFI_STATE_CONNECTING;
-      update_gui();
+      update_gui(false);
     }
   }
 }
@@ -343,8 +343,10 @@ static void event_handler_disconnect(lv_obj_t * obj, lv_event_t event)
   if (event == LV_EVENT_CLICKED) {
     if (connection_state == WIFI_STATE_CONNECTED) {
       WiFi.disconnect();
+      EepromController eepromController;
+      eepromController.resetToDefault();
       connection_state = WIFI_STATE_DISCONNECTED;
-      update_gui();
+      update_gui(false);
     }
   }
 }
@@ -353,6 +355,25 @@ static void event_handler_scan(lv_obj_t * obj, lv_event_t event)
 {
   if (event == LV_EVENT_CLICKED) {
     scan_networks();
-    update_gui();
+    update_gui(false);
   }
+}
+
+static void hide_all(){
+      lv_obj_set_hidden(kb, true);
+      lv_obj_set_hidden(btn_close, true);
+      lv_obj_set_hidden(pwd_ta, true);
+      lv_obj_set_hidden(pwd_label, true);
+      lv_obj_set_hidden(ssid_roller, true);
+      lv_obj_set_hidden(ssid_label, true);
+      lv_obj_set_hidden(btn_connect, true);
+      lv_obj_set_hidden(button_label_connect, true);
+      lv_obj_set_hidden(btn_scan, true);
+      lv_obj_set_hidden(button_label_scan, true);
+      lv_obj_set_hidden(btn_disconnect, true);
+      lv_obj_set_hidden(button_label_disconnect, true);
+      lv_obj_set_hidden(label_connected_ssid, true);
+      lv_obj_set_hidden(label_connection_strength, true);
+      lv_obj_set_hidden(label_ip_address, true);
+      lv_obj_set_hidden(preload, true);
 }

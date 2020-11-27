@@ -1,6 +1,7 @@
 #include <lvgl.h>
 #include <TFT_eSPI.h>
 #include <Ticker.h>
+#include <EEPROM.h>
 
 #include "output_tab.h"
 #include "rest_interface_tab.h"
@@ -70,30 +71,32 @@ void lv_tick_handler() {
   lv_tick_inc(LVGL_TICK_PERIOD);
 }
 
-void create_tab_view(){
+void create_tab_view() {
   /*Create a Tab view object*/
-    lv_obj_t *tabview;
-    tabview = lv_tabview_create(lv_scr_act(), NULL);
+  lv_obj_t *tabview;
+  tabview = lv_tabview_create(lv_scr_act(), NULL);
 
-    /*Add 3 tabs (the tabs are page (lv_page) and can be scrolled*/
-    lv_obj_t *tab_output = lv_tabview_add_tab(tabview, "Output");
-    lv_obj_t *tab_rest_interface = lv_tabview_add_tab(tabview, "REST\nInterface");
-    lv_obj_t *tab_wifi = lv_tabview_add_tab(tabview, "Wifi");
+  /*Add 3 tabs (the tabs are page (lv_page) and can be scrolled*/
+  lv_obj_t *tab_output = lv_tabview_add_tab(tabview, "Output");
+  lv_obj_t *tab_rest_interface = lv_tabview_add_tab(tabview, "REST\nInterface");
+  lv_obj_t *tab_wifi = lv_tabview_add_tab(tabview, "Wifi");
 
-    lv_page_set_scroll_propagation(tab_output, false);
-    lv_page_set_scroll_propagation(tab_rest_interface, false);
-    lv_page_set_scroll_propagation(tab_wifi, false);
-    
-    /*Add content to the tabs*/
-    create_output_tab(tab_output);
-    create_rest_interface_tab(tab_rest_interface);
-    create_wifi_tab(tab_wifi);
+  lv_page_set_scroll_propagation(tab_output, false);
+  lv_page_set_scroll_propagation(tab_rest_interface, false);
+  lv_page_set_scroll_propagation(tab_wifi, false);
+
+  /*Add content to the tabs*/
+  create_output_tab(tab_output);
+  create_rest_interface_tab(tab_rest_interface);
+  create_wifi_tab(tab_wifi);
 }
 
 void setup()
 {
   Serial.begin(115200); /* prepare for possible serial debug */
+  EEPROM.begin(512);
 
+  // ================= GUI =================
   lv_init();
 
   tft.begin(); /* TFT init */
@@ -129,7 +132,7 @@ void setup()
 
 void loop()
 {
-
-  lv_task_handler(); /* let the GUI do its work */
+  /* let the GUI do its work */
+  lv_task_handler();
   //delay(5);
 }
