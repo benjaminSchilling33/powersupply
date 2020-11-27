@@ -2,7 +2,7 @@
 
 **Work in progress**
 
-This repository contains a Open Hardware & Open Source Lab Power Supply.
+This repository contains an Open Hardware & Open Source Lab Power Supply.
 
 The power supply can be controlled locally at the device as well as remote via a REST interface.
 
